@@ -1,0 +1,100 @@
+# //Using the REST API Plug-in: Name: REST Client
+# Id: humao.rest-client
+# Description: REST Client for Visual Studio Code
+# Version: 0.25.1
+# Publisher: Huachao Mao
+# VS Marketplace Link: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+
+// get all todos
+GET http://localhost:3000/todos
+Accept: application/json
+
+###
+
+// Add a todo with self-assigned id
+POST http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "id": "10000",
+  "name": "Chris",
+  "status": "pending",
+  "user": {
+      "name": "Athanas"
+  }
+}
+
+###
+
+// Add a todo & allow server to assign id
+POST http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "name": "Chrissdfssfsfd",
+  "status": "pending"
+}
+
+###
+
+// Update a single todo (dont need to pass all fields)
+// Note: the id field is required
+PUT http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "id": "10000",
+  "name": "Chris-Updated",
+  "status": "completed",
+  "user": {
+      "name": "Athanas-Updated",
+      "age": 30
+  }
+}
+
+###
+
+// Update all todos matching a query (deep searches NOT supported)
+PUT http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "field": "name",
+  "searchValue": "Jimbo",
+  "replaceValue": "Danny"
+}
+
+
+###
+
+// Delete a todo
+DELETE http://localhost:3000/todos
+Content-Type: application/json
+  
+{
+    "id": "10000"
+}
+
+###
+
+// Delete all todos matching a query - VALID QUERY EXAMPLE
+DELETE http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "field": "name",
+  "searchValue": "Chris"
+}
+
+###
+
+// Delete all todos matching a query - INVALID QUERY EXAMPLE
+DELETE http://localhost:3000/todos
+Content-Type: application/json
+
+{
+  "field": "user",
+  "searchValue": { 
+    "name": "Athanas"  // NOTE: deep searches are not currently supported! 
+  }
+}
