@@ -7,34 +7,79 @@ import crypto from "crypto";
 const db = new JSONDB<ToDo>("todo");
 
 export const server = http.createServer(async (req, res) => {
+  console.log(req.method, req.url, req.headers);
+
+  // handle GET /todos/search
+  if (req.url?.startsWith("/todos/search") && req.method === "GET") {
+    try {
+      await searchTodos(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+    }
+  }
+
   // handle GET /todos/?:id
-  if (req.url === "/todos" && req.method === "GET") {
-    await getToDos(req, res);
-    return;
+  // note: needs trailing slash bc there are optional params
+  if (req.url?.startsWith("/todos") && req.method === "GET") {
+    try {
+      await getToDos(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+    }
   }
 
   // handle POST /todos
   if (req.url === "/todos" && req.method === "POST") {
-    await createToDo(req, res);
-    return;
+    try {
+      await createToDo(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+    }
   }
 
   // handle PUT /todos
   if (req.url?.startsWith("/todos") && req.method === "PUT") {
-    await updateToDos(req, res);
-    return;
+    try {
+      await updateToDos(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+    }
   }
 
   // handle DELETE /todos
   if (req.url?.startsWith("/todos") && req.method === "DELETE") {
-    await deleteToDos(req, res);
-    return;
+    try {
+      await deleteToDos(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+    }
   }
 
-  // handle UNLINK /todos (DROP DATABASE) // todo add auth
+  // handle UNLINK /todos (DROP DATABASE) // TODO add auth
   if (req.url?.startsWith("/todos") && req.method === "UNLINK") {
-    await dropDatabase(req, res);
-    return;
+    try {
+      await dropDatabase(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+    }
   }
 
   res.writeHead(404, { "Content-Type": "application/json" });
@@ -45,7 +90,13 @@ export const server = http.createServer(async (req, res) => {
   );
 });
 
-type ToDoStatus = "pending" | "completed" | "archived";
+type ToDoStatus1 = "pending" | "completed" | "archived";
+
+enum ToDoStatus {
+  pending = "pending",
+  completed = "completed",
+  archived = "archived"
+}
 
 interface ToDo {
   id: string;
@@ -106,6 +157,44 @@ async function getToDos(req: http.IncomingMessage, res: http.ServerResponse) {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(todos));
   }
+}
+
+async function searchTodos(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+) {
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
+  });
+
+  req.on("end", async () => {
+    const { field, searchValue } = JSON.parse(body);
+
+    if (field == undefined || searchValue == undefined) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "Missing field or value parameters."
+        })
+      );
+      return;
+    }
+
+    if (field != undefined && searchValue != undefined) {
+      console.log("searching for", searchValue, "in", field);
+      const todos = await db.getAll().where(field).in(searchValue).run();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(todos));
+    } else {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "No data found"
+        })
+      );
+    }
+  });
 }
 
 function updateToDos(req: http.IncomingMessage, res: http.ServerResponse) {

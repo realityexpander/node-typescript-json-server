@@ -11,6 +11,22 @@ Accept: application/json
 
 ###
 
+// get a single todo that matches id
+GET http://localhost:3000/todos/866a493a-b4ae-413f-9bdc-23276f3da430
+Accept: application/json
+
+###
+
+// Search all todos matching a query (deep searches NOT supported)
+GET http://localhost:3000/todos/search
+
+{
+  "field": "name",
+  "searchValue": "Chris"
+}
+
+###
+
 // Add a todo with self-assigned id
 POST http://localhost:3000/todos
 Content-Type: application/json
@@ -31,8 +47,8 @@ POST http://localhost:3000/todos
 Content-Type: application/json
 
 {
-  "name": "Chrissdfssfsfd",
-  "status": "pending"
+  "name": "Chris 3",
+  "status": "pending2"
 }
 
 ###
@@ -64,7 +80,6 @@ Content-Type: application/json
   "replaceValue": "Danny"
 }
 
-
 ###
 
 // Delete a todo
@@ -72,7 +87,7 @@ DELETE http://localhost:3000/todos
 Content-Type: application/json
   
 {
-    "id": "10000"
+    "id": "cd71a8e7-1df2-4d00-8162-b6e4f53d0477"
 }
 
 ###
