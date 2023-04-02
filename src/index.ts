@@ -6,6 +6,7 @@ import uuidv4 from "uuid4";
 import fs from "fs/promises";
 import { File } from "formidable";
 // Article: https://medium.com/before-semicolon/how-to-create-a-json-database-in-nodejs-from-scratch-8dbd046bddb3
+import slugify from "slugify";
 
 const db = new JSONDB<ToDo>("todo");
 
@@ -98,6 +99,19 @@ export const server = http.createServer(async (req, res) => {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
       console.log(error);
+    }
+  }
+
+  // GET /uploads
+  if (req.url?.startsWith("/uploads") && req.method === "GET") {
+    try {
+      await getUploads(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+      return;
     }
   }
 
@@ -388,7 +402,16 @@ async function uploadFiles(
         // const oldpath = file.filepath;
         // const newpath = "./uploads/" + file.originalFilename;
         const oldpath = files[file].filepath;
-        const newpath = "./uploads/" + files[file].originalFilename;
+        const newpath =
+          "./uploads/" +
+          slugify(files[file].originalFilename!, {
+            replacement: "-", // replace spaces with replacement character, defaults to `-`
+            remove: undefined, // remove characters that match regex, defaults to `undefined`
+            lower: false, // convert to lower case, defaults to `false`
+            strict: false, // strip special characters except replacement, defaults to `false`
+            locale: "en", // language code of the locale to use
+            trim: true // trim leading and trailing replacement chars, defaults to `true`
+          });
         // fs.rename(oldpath, newpath, function (err) {
         //   if (err) throw err;
         //   res.writeHead(200, {
@@ -430,6 +453,48 @@ async function uploadFiles(
       res.end(JSON.stringify(todo));
     }
   );
+}
+
+async function getUploads(req: http.IncomingMessage, res: http.ServerResponse) {
+  // get filename from url
+  const filename = req.url?.split("/")[2];
+
+  if (filename != undefined) {
+    // get file from uploads folder
+    const file = await fs.readFile("./uploads/" + filename);
+
+    // return as file download
+    // res.writeHead(200, { "Content-Type": "application/octet-stream" });
+    // res.end(file);
+
+    // return as image
+    res.writeHead(200, { "Content-Type": "image/png" });
+    res.end(file, "binary");
+
+    return;
+  }
+
+  const uploads = await fs.readdir("./uploads");
+
+  const links = uploads.map((upload) => {
+    return {
+      link: `http://localhost:3000/uploads/${upload}`,
+      name: upload
+    };
+  });
+
+  // // return an html snippet with links to files
+  // res.writeHead(200, { "Content-Type": "text/html" });
+  // res.end(
+  //   links
+  //     .map((link) => {
+  //       return `<a href="${link.link}">${link.name}</a>`;
+  //     })
+  //     .join("<br>")
+  // );
+
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(links));
 }
 
 server.listen(3000, () => {
