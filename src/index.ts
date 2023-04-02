@@ -1,7 +1,10 @@
 import { JSONDB } from "@beforesemicolon/node-json-db";
 import http from "http";
 import crypto from "crypto";
-
+const formidable = require("formidable");
+import uuidv4 from "uuid4";
+import fs from "fs/promises";
+import { File } from "formidable";
 // Article: https://medium.com/before-semicolon/how-to-create-a-json-database-in-nodejs-from-scratch-8dbd046bddb3
 
 const db = new JSONDB<ToDo>("todo");
@@ -9,7 +12,11 @@ const db = new JSONDB<ToDo>("todo");
 export const server = http.createServer(async (req, res) => {
   console.log(req.method, req.url, req.headers);
 
-  // handle GET /todos/search
+  // CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  // GET /todos/search
+  // Note: more specific routes should be before less specific routes
   if (req.url?.startsWith("/todos/search") && req.method === "GET") {
     try {
       await searchTodos(req, res);
@@ -21,7 +28,7 @@ export const server = http.createServer(async (req, res) => {
     }
   }
 
-  // handle GET /todos/?:id
+  // GET /todos/?:id
   // note: needs trailing slash bc there are optional params
   if (req.url?.startsWith("/todos") && req.method === "GET") {
     try {
@@ -34,7 +41,7 @@ export const server = http.createServer(async (req, res) => {
     }
   }
 
-  // handle POST /todos
+  // POST /todos
   if (req.url === "/todos" && req.method === "POST") {
     try {
       await createToDo(req, res);
@@ -46,7 +53,7 @@ export const server = http.createServer(async (req, res) => {
     }
   }
 
-  // handle PUT /todos
+  // PUT /todos
   if (req.url?.startsWith("/todos") && req.method === "PUT") {
     try {
       await updateToDos(req, res);
@@ -58,7 +65,7 @@ export const server = http.createServer(async (req, res) => {
     }
   }
 
-  // handle DELETE /todos
+  // DELETE /todos
   if (req.url?.startsWith("/todos") && req.method === "DELETE") {
     try {
       await deleteToDos(req, res);
@@ -70,13 +77,25 @@ export const server = http.createServer(async (req, res) => {
     }
   }
 
-  // handle UNLINK /todos (DROP DATABASE) // TODO add auth
+  // UNLINK /todos (DROP DATABASE) // TODO add auth
   if (req.url?.startsWith("/todos") && req.method === "UNLINK") {
     try {
       await dropDatabase(req, res);
       return;
     } catch (error: any) {
       res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: error.message }));
+      console.log(error);
+    }
+  }
+
+  // POST /upload
+  if (req.url?.startsWith("/upload") && req.method === "POST") {
+    try {
+      await uploadFiles(req, res);
+      return;
+    } catch (error: any) {
+      res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: error.message }));
       console.log(error);
     }
@@ -322,6 +341,95 @@ async function dropDatabase(
 
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ data: "Database dropped" }));
+}
+
+async function uploadFiles(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+) {
+  const form = new formidable.IncomingForm({
+    multiples: true,
+    keepExtensions: true,
+    uploadDir: "./uploads"
+  });
+
+  form.parse(
+    req,
+    async (
+      err: any,
+      fields: { name: any; status: any; user: any },
+      files: { [fileKey: string]: File }
+    ) => {
+      if (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: "Error parsing form"
+          })
+        );
+        return;
+      }
+
+      const id = uuidv4();
+      const { name, status, user } = fields;
+      const fileList = Object.keys(files);
+
+      const todo = {
+        id,
+        name,
+        status,
+        user: { ...user, files: fileList, ...fields }
+      };
+
+      await db.insert(todo);
+
+      // Download and save file(s) to a local folder
+      for (const file of fileList) {
+        // const oldpath = file.filepath;
+        // const newpath = "./uploads/" + file.originalFilename;
+        const oldpath = files[file].filepath;
+        const newpath = "./uploads/" + files[file].originalFilename;
+        // fs.rename(oldpath, newpath, function (err) {
+        //   if (err) throw err;
+        //   res.writeHead(200, {
+        //     "Content-Type": "application/json"
+        //   });
+        //   res.end(JSON.stringify(todo));
+        // });
+
+        // Check if File already exists
+        try {
+          await fs.access(newpath);
+          // throw new Error("File already exists");
+          console.log(
+            "File already exists -- " + newpath + " -- deleting cached upload"
+          );
+          await fs.unlink(oldpath);
+          continue;
+        } catch (err: any) {
+          // File does not exist
+          console.log("File does not exist -- " + newpath + " -- saving");
+        }
+
+        try {
+          await fs.rename(oldpath, newpath);
+        } catch (err: any) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: "Error saving file: " + err.message
+            })
+          );
+          return;
+        }
+      }
+
+      res.writeHead(200, {
+        "Content-Type": "application/json"
+      });
+      res.end(JSON.stringify(todo));
+    }
+  );
 }
 
 server.listen(3000, () => {
