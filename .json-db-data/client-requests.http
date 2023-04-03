@@ -22,7 +22,7 @@ GET http://localhost:3000/todos/search
 
 {
   "field": "name",
-  "searchValue": "Chris"
+  "searchValue": "Steve"
 }
 
 ###

@@ -216,7 +216,10 @@ async function searchTodos(
 
     if (field != undefined && searchValue != undefined) {
       console.log("searching for", searchValue, "in", field);
-      const todos = await db.getAll().where(field).in(searchValue).run();
+      // const todos = await db.getAll().where(field).in(searchValue).run();
+      //where.match(/world/)
+      const searchRegex = new RegExp(searchValue, "i");
+      const todos = await db.getAll().where(field).matches(searchRegex).run();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(todos));
     } else {
@@ -388,37 +391,21 @@ async function uploadFiles(
       const { name, status, user } = fields;
       const fileList = Object.keys(files);
 
-      const todo = {
-        id,
-        name,
-        status,
-        user: { ...user, files: fileList, ...fields }
-      };
-
-      await db.insert(todo);
-
       // Download and save file(s) to a local folder
+      const uploadedFiles: string[] = [];
       for (const file of fileList) {
         // const oldpath = file.filepath;
         // const newpath = "./uploads/" + file.originalFilename;
         const oldpath = files[file].filepath;
-        const newpath =
-          "./uploads/" +
-          slugify(files[file].originalFilename!, {
-            replacement: "-", // replace spaces with replacement character, defaults to `-`
-            remove: undefined, // remove characters that match regex, defaults to `undefined`
-            lower: false, // convert to lower case, defaults to `false`
-            strict: false, // strip special characters except replacement, defaults to `false`
-            locale: "en", // language code of the locale to use
-            trim: true // trim leading and trailing replacement chars, defaults to `true`
-          });
-        // fs.rename(oldpath, newpath, function (err) {
-        //   if (err) throw err;
-        //   res.writeHead(200, {
-        //     "Content-Type": "application/json"
-        //   });
-        //   res.end(JSON.stringify(todo));
-        // });
+        const slugFilename = slugify(files[file].originalFilename!, {
+          replacement: "-", // replace spaces with replacement character, defaults to `-`
+          remove: undefined, // remove characters that match regex, defaults to `undefined`
+          lower: false, // convert to lower case, defaults to `false`
+          strict: false, // strip special characters except replacement, defaults to `false`
+          locale: "en", // language code of the locale to use
+          trim: true // trim leading and trailing replacement chars, defaults to `true`
+        });
+        const newpath = "./uploads/" + slugFilename;
 
         // Check if File already exists
         try {
@@ -445,12 +432,27 @@ async function uploadFiles(
           );
           return;
         }
+
+        uploadedFiles.push(newpath);
       }
+
+      const todo = {
+        id,
+        name,
+        status,
+        user: { ...user, files: uploadedFiles, ...fields }
+      };
+      await db.insert(todo);
+
+      const uploadResult = {
+        todo,
+        uploadedFiles
+      };
 
       res.writeHead(200, {
         "Content-Type": "application/json"
       });
-      res.end(JSON.stringify(todo));
+      res.end(JSON.stringify(uploadResult));
     }
   );
 }
