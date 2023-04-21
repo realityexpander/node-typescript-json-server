@@ -1,0 +1,58 @@
+<html><head>
+      <meta charset="UTF-8">
+    <style>
+      :root {
+        background-color: black;
+        color: white;
+      }
+    </style><style>
+        /* Component: web-component */
+        /* attrs: [{"name":"scope","value":"component"}] */
+        /* Scope: component */
+        
+      .ssr_web-component_c73b3c64-3728-4375-a4f3-7acf321edad2 {
+        display: block;
+        color: green;
+      }
+    
+        
+
+        /* Component: hello-world */
+        /* attrs: [{"name":"scope","value":"global"}] */
+        /* Scope: global */
+        
+      h1 {
+        color: red;
+      }
+    
+        </style></head>
+
+    
+      
+    <body><web-component class="ssr_web-component_c73b3c64-3728-4375-a4f3-7acf321edad2" params="ssr_hello">
+    
+    
+  
+    
+  <h1>WebComponent</h1>
+  <p>state={"context":{},"instanceID":"oavnsdl","store":{},"attrs":{"class":"ssr_web-component_c73b3c64-3728-4375-a4f3-7acf321edad2","params":"ssr_hello"}}</p>
+  
+      <slot id="main"><button>OK</button>Content for Slots from Main HTML</slot>
+    
+  <button>Click Me</button>
+  
+    <p>** SSR rendered web-component **</p>
+
+    
+  </web-component>
+
+    <hello-world class="ssr_hello-world_bb694a25-38bc-40cf-a8b8-259fa9fa9b27">
+    
+    <h1>Hello World</h1>
+    
+      Server Rendered Content
+    
+  </hello-world>
+  <script defer="" type="module">
+      import { WebComponent } from './web-components/web-component.js'
+    </script></body></html>

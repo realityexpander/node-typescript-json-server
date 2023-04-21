@@ -1,12 +1,145 @@
-import { JSONDB } from "@beforesemicolon/node-json-db";
+import { JSONDB } from "@beforesemicolon/node-json-db/src/index.js";
 import http from "http";
-import crypto from "crypto";
+import crypto, { randomUUID } from "crypto";
 const formidable = require("formidable");
 import uuidv4 from "uuid4";
 import fs from "fs/promises";
 import { File } from "formidable";
 // Article: https://medium.com/before-semicolon/how-to-create-a-json-database-in-nodejs-from-scratch-8dbd046bddb3
 import slugify from "slugify";
+
+// @ts-ignore // needed for regular js files
+import HelloWorld from "./hello-world.js";
+
+// @ts-ignore
+import WebComponentSSR from "./web-components/web-component-ssr.js";
+
+// console
+// .log
+// HelloWorld({
+//   html: (data) => "<html><body>" + data + "</body></html>",
+//   state: { attrs: { greeting: "Hello World" } }
+// })
+// ();
+
+/**
+ * Import '@enhance' pure-js ES-Module into CommonJS Node.js module
+ */
+(async () => {
+  const { default: enhance } = await (eval(
+    `import("@enhance/ssr/index.mjs")`
+  ) as Promise<typeof import("@enhance/ssr/index.mjs")>);
+
+  // const html = enhance({
+  //   elements: {
+  //     "hello-world": HelloWorld
+  //   }
+  // });
+  // const res = html`<hello-world greeting="fuck">
+  //   Well hello there!
+  // </hello-world>`;
+  // console.log(res);
+  // console.log();
+
+  // generate random class ID map for components
+  const componentStyleIdMap = {};
+  componentStyleIdMap["web-component"] = createStyleId("web-component");
+  componentStyleIdMap["hello-world"] = createStyleId("hello-world");
+
+  const html2 = enhance({
+    elements: {
+      "web-component": WebComponentSSR,
+      "hello-world": HelloWorld
+    },
+    scriptTransforms: [
+      function ({ attrs, raw }) {
+        // raw is the raw text from inside the script tag
+        // attrs are the attributes from the script tag
+        return raw;
+      }
+    ],
+    styleTransforms: [
+      function (data) {
+        // `attrs` is array of the attributes {name,value} from the style tag.
+        // `tagName` is the name of the html element.
+        const { tagName, attrs } = data;
+
+        // raw is the raw text from inside the style tag
+        const { raw } = data;
+        let transformedStyle: string = raw; // default to raw string
+
+        const attrsLookup = getAttrsLookupTable(attrs);
+        const scope = attrsLookup["scope"]; // check scope of css: 'global', 'component'
+
+        if (scope == "component") {
+          transformedStyle = replaceHostWithGeneratedClassId(
+            raw,
+            componentStyleIdMap[tagName]
+          );
+        }
+
+        return `
+        /* Component: ${tagName} */
+        /* attrs: ${JSON.stringify(attrs)} */
+        /* Scope: ${scope} */
+        ${transformedStyle}
+        `;
+      }
+    ]
+  });
+
+  // This is the HTML that will be rendered on the server
+  const res2 = html2`
+    <head>
+      <meta charset="UTF-8" />
+    </head>
+
+    <style>
+      :root {
+        background-color: black;
+        color: white;
+      }
+    </style>
+      
+    <web-component 
+      class="${componentStyleIdMap["web-component"]}"
+      params="ssr_hello">
+      <slot id="main"><button>OK</button>Content for Slots from Main HTML</slot>
+    </web-component>
+
+    <hello-world class="${componentStyleIdMap["hello-world"]}">
+      Server Rendered Content
+    </hello-world>
+  `;
+  console.log(res2);
+
+  // write res2 to file
+  await fs.writeFile("./src/index-res2.html", res2);
+})();
+
+function getAttrsLookupTable(attrs: any[]) {
+  return attrs.reduce((acc, { name, value }) => {
+    acc[name] = value;
+    return acc;
+  }, {});
+}
+
+// replace `:host:` with the generated class id
+function replaceHostWithGeneratedClassId(raw: string, id: string) {
+  return raw.replace(/:host /g, `.${id} `);
+}
+
+// generate random class ID for components
+function createStyleId(tagName = "") {
+  return "ssr_" + tagName + "_" + randomUUID();
+}
+
+import type {
+  EnhanceElemArg,
+  EnhanceElemFn,
+  EnhanceHtmlFn,
+  EnhanceElemResult
+} from "@enhance/types";
 
 const db = new JSONDB<ToDo>("todo");
 
@@ -219,7 +352,11 @@ async function searchTodos(
       // const todos = await db.getAll().where(field).in(searchValue).run();
       //where.match(/world/)
       const searchRegex = new RegExp(searchValue, "i");
-      const todos = await db.getAll().where(field).matches(searchRegex).run();
+      // const todos = await db.getAll().where(field).matches(searchRegex).run();
+
+      // using new contains() method
+      const todos = await db.getAll().where(field).in(searchValue).run();
+
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(todos));
     } else {
