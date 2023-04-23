@@ -32,6 +32,15 @@ enum Ability {
   destroy = "destroy"
 }
 
+const Ability_EnglishWords = {
+  [Ability.create]: "Create Documents",
+  [Ability.view]: "View Documents",
+  [Ability.edit]: "Edit Documents",
+  [Ability.delete]: "Delete Documents",
+  [Ability.ban]: "Ban Users",
+  [Ability.destroy]: "Destroy Users"
+};
+
 interface UserRoleConfigWithEnum {
   user: [Ability.create, Ability.view, Ability.edit];
   admin: [
@@ -320,3 +329,81 @@ const merge1 = (dog: Dog_Base, options: Dog_Optionals): Dog_Base & Dog_Optionals
 const merge2 = (dog: Dog_Base, overrides: Dog_Overrides): Dog_Base & Dog_Overrides => {
   return { ...dog, ...overrides };
 }
+
+///////////////////////
+// Pluck             //
+///////////////////////
+
+function pluck<DataType, KeyType extends keyof DataType>(
+  items: DataType[],
+  key: KeyType
+): DataType[KeyType][] {
+  return items.map((item) => item[key]);
+}
+
+const dogs = [
+  { name: "Lil Bub", age: 7 },
+  { name: "Garfield", age: 40 },
+  { name: "Heathcliff", age: 45 }
+];
+
+const names = pluck(dogs, "name");
+const ages = pluck(dogs, "age");
+
+//////////////////////////////////////////
+// Restrict Functions to specific types //
+//////////////////////////////////////////
+
+function sendEvent(name: "addToCart", data: { productId: number }): void;
+function sendEvent(name: "checkout", data: { cartCount: number }): void;
+function sendEvent(name: string, data: unknown): void {
+  // send to analytics server
+
+  switch (name) {
+    case "addToCart":
+      const productId = (data as { productId: number }).productId;
+      console.log(`Added product ${productId} to cart`);
+      break;
+
+    case "checkout":
+      const cartCount = (data as { cartCount: number }).cartCount;
+      console.log(`Checked out with ${cartCount} items in cart`);
+      break;
+
+    default:
+      break;
+  }
+}
+
+sendEvent("addToCart", { productId: 123 }); // can only call the addToCart function with the correct data
+sendEvent("checkout", { cartCount: 1 }); // can only call the checkout function with the correct data
+
+//////////////////////////
+// Partial              //
+//////////////////////////
+
+interface Dog {
+  name: string;
+  age: number;
+  breed: string;
+}
+
+type DogPartial = Partial<Dog>;
+
+const dogPartial: DogPartial = {
+  name: "Lil Bub"
+};
+
+// All of these are equivalent
+type dogPartialNameRequired0 = Partial<Dog> & Pick<Dog, "name">;
+type dogPartialNameRequired1 = Partial<Dog> & Required<Pick<Dog, "name">>;
+type dogPartialNameRequired2 = Partial<Dog> & { name: string };
+
+///////////////////////////////
+// Import Constants as Types //
+///////////////////////////////
+
+export type ActionModule = typeof import("./action_constants");
+export type Action = ActionModule[keyof ActionModule];
+//            ^?
+
